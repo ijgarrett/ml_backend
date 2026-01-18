@@ -30,8 +30,9 @@ def health():
 @app.route('/api/sudoku/scan', methods=['POST'])
 def scan_sudoku():
     """
-    Scans a Sudoku puzzle image and returns the extracted grid.
+    Scans a puzzle grid image and returns the extracted grid.
     Expects an image file in the request.
+    Optional: grid_size parameter (default: 9) to specify grid dimensions (e.g., 4, 9, 16).
     """
     try:
         if 'image' not in request.files:
@@ -45,17 +46,23 @@ def scan_sudoku():
         if not allowed_file(file.filename):
             return jsonify({'error': 'Invalid file type. Allowed types: png, jpg, jpeg'}), 400
 
+        grid_size = request.form.get('grid_size', 9, type=int)
+
+        if grid_size <= 0 or grid_size > 25:
+            return jsonify({'error': 'Grid size must be between 1 and 25'}), 400
+
         filename = secure_filename(file.filename)
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
         try:
-            grid = image_to_board(filepath)
+            grid = image_to_board(filepath, grid_size=grid_size)
 
             os.remove(filepath)
 
             return jsonify({
                 'success': True,
+                'grid_size': grid_size,
                 'grid': grid
             }), 200
 
