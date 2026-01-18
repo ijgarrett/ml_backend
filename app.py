@@ -3,6 +3,7 @@ from flask_cors import CORS
 import os
 from werkzeug.utils import secure_filename
 from sudoku_scanner_advanced import image_to_board
+from detect_polynomial import extract_polynomial_boxes
 
 app = Flask(__name__)
 CORS(app)
@@ -62,6 +63,52 @@ def scan_sudoku():
             if os.path.exists(filepath):
                 os.remove(filepath)
             return jsonify({'error': f'Error processing image: {str(e)}'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/polynomial/scan', methods=['POST'])
+def scan_polynomial():
+    """
+    Scans a worksheet image and extracts polynomial boxes.
+    Expects an image file in the request.
+    """
+    try:
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+
+        file = request.files['image']
+
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+
+        if not allowed_file(file.filename):
+            return jsonify({
+                'error': 'Invalid file type. Allowed types: png, jpg, jpeg'
+            }), 400
+
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+
+        try:
+            result = extract_polynomial_boxes(filepath)
+
+            os.remove(filepath)
+
+            return jsonify({
+                'success': True,
+                'num_boxes': result['num_boxes'],
+                'detections': result['detections'],
+                'polynomial': result['polynomial']
+            }), 200
+
+        except Exception as e:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            return jsonify({
+                'error': f'Error processing image: {str(e)}'
+            }), 500
 
     except Exception as e:
         return jsonify({'error': str(e)}), 400
